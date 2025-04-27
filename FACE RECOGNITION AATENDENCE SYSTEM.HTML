@@ -1,1 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Face Recognition Attendance System</title>
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: { primary: "#3b82f6", secondary: "#64748b" },
+            borderRadius: {
+              none: "0px",
+              sm: "4px",
+              DEFAULT: "8px",
+              md: "12px",
+              lg: "16px",
+              xl: "20px",
+              "2xl": "24px",
+              "3xl": "32px",
+              full: "9999px",
+              button: "8px",
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css"
+      rel="stylesheet"
+    />
+    <style>
+      :where([class^="ri-"])::before { content: "\f3c2"; }
+      body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f9fafb;
+      }
+      .camera-container {
+      position: relative;
+      overflow: hidden;
+      }
+      .face-box {
+      position: absolute;
+      border: 2px solid #3b82f6;
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.5);
+      border-radius: 4px;
+      }
+      .face-detected {
+      border-color: #10b981;
+      box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.5);
+      }
+      input[type="number"]::-webkit-inner-spin-button,
+      input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+      }
+      .custom-switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      }
+      .custom-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      }
+      .switch-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #e5e7eb;
+      transition: .4s;
+      border-radius: 24px;
+      }
+      .switch-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+      }
+      input:checked + .switch-slider {
+      background-color: #3b82f6;
+      }
+      input:checked + .switch-slider:before {
+      transform: translateX(20px);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="min-h-screen flex flex-col">
+      <!-- Header -->
+      <header class="bg-white shadow-sm">
+        <div
+          class="container mx-auto px-4 py-4 flex items-center justify-between"
+        >
+          <div class="flex items-center">
+            <h1 class="text-xl font-semibold text-gray-800 mr-8">
+              Face Recognition Attendance System
+            </h1>
+            <nav class="hidden md:flex space-x-6">
+              <a href="#" class="text-primary font-medium">Home</a>
+              <a href="#" class="text-gray-600 hover:text-primary"
+                >Attendance Records</a
+              >
+              <a href="#" class="text-gray-600 hover:text-primary">Settings</a>
+            </nav>
+          </div>
+          <div class="flex items-center">
+            <div class="text-sm text-gray-600 mr-4" id="current-date-time">
+              April 22, 2025 - 10:30 AM
+            </div>
+            <div class="relative">
+              <button
+                class="flex items-center text-gray-700 hover:text-primary"
+              >
+                <div
+                  class="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full mr-2"
+                >
+                  <i class="ri-user-line"></i>
+                </div>
+                <span class="hidden md:inline">Admin</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+      <!-- Main Content -->
+      <main class="flex-grow container mx-auto px-4 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <!-- Camera Feed Section -->
+          <div class="lg:col-span-2">
+            <div class="bg-white rounded shadow-sm p-6">
+              <h2 class="text-lg font-semibold mb-4">Camera Feed</h2>
+              <div
+                class="camera-container bg-gray-100 rounded aspect-video flex items-center justify-center relative"
+              >
+                <video
+                  id="video"
+                  class="w-full h-full object-cover rounded"
+                  autoplay
+                  muted
+                  playsinline
+                ></video>
+                <div id="face-detection-box" class="face-box hidden"></div>
+                <div
+                  id="no-camera"
+                  class="absolute inset-0 flex flex-col items-center justify-center text-gray-500"
+                >
+                  <div
+                    class="w-16 h-16 flex items-center justify-center text-4xl mb-4"
+                  >
+                    <i class="ri-camera-off-line"></i>
+                  </div>
+                  <p>Camera not available</p>
+                  <button
+                    id="enable-camera"
+                    class="mt-4 px-4 py-2 bg-primary text-white rounded-button whitespace-nowrap"
+                  >
+                    Enable Camera
+                  </button>
+                </div>
+              </div>
+              <div class="mt-4 flex items-center justify-between">
+                <div class="flex items-center">
+                  <div
+                    id="status-indicator"
+                    class="w-3 h-3 rounded-full bg-gray-400 mr-2"
+                  ></div>
+                  <span id="status-text" class="text-sm text-gray-600"
+                    >Camera inactive</span
+                  >
+                </div>
+                <div class="flex space-x-3">
+                  <button
+                    id="start-recognition"
+                    class="px-4 py-2 bg-primary text-white rounded-button whitespace-nowrap"
+                  >
+                    Start Recognition
+                  </button>
+                  <button
+                    id="mark-attendance"
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-button whitespace-nowrap"
+                    disabled
+                  >
+                    Mark Attendance
+                  </button>
+                  <button
+                    id="reset"
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-button whitespace-nowrap"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+            <!-- Attendance Status -->
+            <div class="bg-white rounded shadow-sm p-6 mt-6">
+              <h2 class="text-lg font-semibold mb-4">Attendance Status</h2>
+              <div id="notification" class="hidden mb-4 p-4 rounded"></div>
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Employee ID
+                      </th>
+                      <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Name
+                      </th>
+                      <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Time In
+                      </th>
+                      <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Time Out
+                      </th>
+                      <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    class="bg-white divide-y divide-gray-200"
+                    id="attendance-records"
+                  >
+                    <tr>
+                      <td
+                        class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                      >
+                        EMP10234
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                          <div
+                            class="flex-shrink-0 h-8 w-8 bg-gray-200 rounded-full flex items-center justify-center"
+                          >
+                            <i class="ri-user-line text-gray-500"></i>
+                          </div>
+                          <div class="ml-3">
+                            <div class="text-sm font-medium text-gray-900">
+                              Michael Anderson
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td
+                        class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                      >
+                        08:45 AM
+                      </td>
+                      <td
+                        class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                      >
+                        05:15 PM
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span
+                          class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"
+                        >
+                          Present
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td
+                        class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                      >
+                        EMP10542
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                          <div
+                            class="flex-shrink-0 h-8 w-8 bg-gray-200 rounded-full flex items-center justify-center"
+                          >
+                            <i class="ri-user-line text-gray-500"></i>
+                          </div>
+                          <div class="ml-3">
+                            <div class="text-sm font-medium text-gray-900">
+                              Jennifer Wilson
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td
+                        class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                      >
+                        09:05 AM
+                      </td>
+                      <td
+                        class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                      >
+                        --
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span
+                          class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800"
+                        >
+                          In Office
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <!-- User Information Panel -->
+          <div class="lg:col-span-1">
+            <div class="bg-white rounded shadow-sm p-6 mb-6">
+              <h2 class="text-lg font-semibold mb-4">User Information</h2>
+              <div class="flex flex-col items-center mb-6">
+                <div
+                  class="w-32 h-32 bg-gray-200 rounded-full flex items-center justify-center mb-4 overflow-hidden"
+                >
+                  <img
+                    id="person-photo"
+                    class="w-full h-full object-cover hidden"
+                    alt="Person Photo"
+                  />
+                  <i
+                    class="ri-user-line text-5xl text-gray-400"
+                    id="default-avatar"
+                  ></i>
+                </div>
+                <div
+                  id="recognition-status"
+                  class="text-sm font-medium text-gray-500"
+                >
+                  Waiting for recognition...
+                </div>
+              </div>
+              <div class="space-y-4">
+                <div>
+                  <label
+                    for="employee-id"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Employee ID</label
+                  >
+                  <input
+                    type="text"
+                    id="employee-id"
+                    class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm"
+                    placeholder="Employee ID"
+                    readonly
+                  />
+                </div>
+                <div>
+                  <label
+                    for="name"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Name</label
+                  >
+                  <input
+                    type="text"
+                    id="name"
+                    class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm"
+                    placeholder="Employee Name"
+                    readonly
+                  />
+                </div>
+                <div>
+                  <label
+                    for="department"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Department</label
+                  >
+                  <input
+                    type="text"
+                    id="department"
+                    class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm"
+                    placeholder="Department"
+                    readonly
+                  />
+                </div>
+                <div>
+                  <label
+                    for="status"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Status</label
+                  >
+                  <div
+                    id="status"
+                    class="w-full px-3 py-2 bg-gray-100 rounded text-sm text-gray-700"
+                  >
+                    Not checked in
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Settings Panel -->
+            <div class="bg-white rounded shadow-sm p-6">
+              <h2 class="text-lg font-semibold mb-4">Settings</h2>
+              <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm text-gray-700">Auto Recognition</span>
+                  <label class="custom-switch">
+                    <input type="checkbox" id="auto-recognition" />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-sm text-gray-700"
+                    >Face Detection Highlight</span
+                  >
+                  <label class="custom-switch">
+                    <input type="checkbox" id="face-highlight" checked />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+                <div>
+                  <label
+                    for="detection-threshold"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Detection Threshold</label
+                  >
+                  <div class="flex items-center">
+                    <input
+                      type="range"
+                      id="detection-threshold"
+                      min="0"
+                      max="100"
+                      value="80"
+                      class="w-full h-2 bg-gray-200 rounded-full appearance-none"
+                    />
+                    <span
+                      id="threshold-value"
+                      class="ml-2 text-sm text-gray-600"
+                      >80%</span
+                    >
+                  </div>
+                </div>
+                <div>
+                  <label
+                    for="camera-source"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Camera Source</label
+                  >
+                  <div class="relative">
+                    <select
+                      id="camera-source"
+                      class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm appearance-none pr-8"
+                    >
+                      <option value="default">Default Camera</option>
+                      <option value="front">Front Camera</option>
+                      <option value="back">Back Camera</option>
+                    </select>
+                    <div
+                      class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
+                    >
+                      <i class="ri-arrow-down-s-line text-gray-500"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+      <!-- Footer -->
+      <footer class="bg-white border-t border-gray-200 py-4">
+        <div class="container mx-auto px-4">
+          <div class="flex flex-col md:flex-row justify-between items-center">
+            <div class="flex items-center mb-4 md:mb-0">
+              <div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
+              <span class="text-sm text-gray-600">System Online</span>
+            </div>
+            <div class="text-sm text-gray-500">
+              © 2025 Face Recognition Attendance System. All rights reserved.
+            </div>
+            <div class="flex space-x-4 mt-4 md:mt-0">
+              <a href="#" class="text-gray-500 hover:text-primary">
+                <span class="w-6 h-6 flex items-center justify-center">
+                  <i class="ri-question-line"></i>
+                </span>
+              </a>
+              <a href="#" class="text-gray-500 hover:text-primary">
+                <span class="w-6 h-6 flex items-center justify-center">
+                  <i class="ri-settings-3-line"></i>
+                </span>
+              </a>
+              <a href="#" class="text-gray-500 hover:text-primary">
+                <span class="w-6 h-6 flex items-center justify-center">
+                  <i class="ri-information-line"></i>
+                </span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Update current date and time
+        function updateDateTime() {
+          const now = new Date();
+          const options = {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          };
+          document.getElementById("current-date-time").textContent =
+            now.toLocaleDateString("en-US", options);
+        }
+        updateDateTime();
+        setInterval(updateDateTime, 60000);
+        // Camera handling
+        const video = document.getElementById("video");
+        const enableCameraBtn = document.getElementById("enable-camera");
+        const startRecognitionBtn = document.getElementById("start-recognition");
+        const markAttendanceBtn = document.getElementById("mark-attendance");
+        const resetBtn = document.getElementById("reset");
+        const faceDetectionBox = document.getElementById("face-detection-box");
+        const statusIndicator = document.getElementById("status-indicator");
+        const statusText = document.getElementById("status-text");
+        const noCameraDiv = document.getElementById("no-camera");
+        const recognitionStatus = document.getElementById("recognition-status");
+        const notificationDiv = document.getElementById("notification");
+        // Settings elements
+        const autoRecognitionToggle = document.getElementById("auto-recognition");
+        const faceHighlightToggle = document.getElementById("face-highlight");
+        const detectionThreshold = document.getElementById("detection-threshold");
+        const thresholdValue = document.getElementById("threshold-value");
+        const cameraSource = document.getElementById("camera-source");
+        // User info fields
+        const employeeIdField = document.getElementById("employee-id");
+        const nameField = document.getElementById("name");
+        const departmentField = document.getElementById("department");
+        const statusField = document.getElementById("status");
+        let stream = null;
+        let recognitionActive = false;
+        let faceDetected = false;
+        let recognitionInterval = null;
+        // Sample employee data (in a real app, this would come from a server)
+        const employees = [
+          {
+            id: "EMP10234",
+            name: "Michael Anderson",
+            department: "Engineering",
+            imageUrl:
+              "https://readdy.ai/api/search-image?query=professional%20headshot%20of%20a%20caucasian%20male%20with%20brown%20hair%20wearing%20a%20business%20suit%2C%20looking%20directly%20at%20camera%20with%20a%20friendly%20smile%2C%20clean%20background%2C%20high%20quality%20studio%20lighting&width=400&height=400&seq=1&orientation=squarish",
+          },
+          {
+            id: "EMP10542",
+            name: "Jennifer Wilson",
+            department: "Marketing",
+            imageUrl:
+              "https://readdy.ai/api/search-image?query=professional%20headshot%20of%20a%20caucasian%20female%20with%20blonde%20hair%20wearing%20a%20business%20blazer%2C%20looking%20directly%20at%20camera%20with%20a%20confident%20smile%2C%20clean%20background%2C%20high%20quality%20studio%20lighting&width=400&height=400&seq=2&orientation=squarish",
+          },
+          {
+            id: "EMP10876",
+            name: "David Thompson",
+            department: "Finance",
+            imageUrl:
+              "https://readdy.ai/api/search-image?query=professional%20headshot%20of%20a%20middle-aged%20caucasian%20male%20with%20glasses%20wearing%20a%20business%20suit%2C%20looking%20directly%20at%20camera%20with%20a%20serious%20expression%2C%20clean%20background%2C%20high%20quality%20studio%20lighting&width=400&height=400&seq=3&orientation=squarish",
+          },
+          {
+            id: "EMP10321",
+            name: "Sarah Johnson",
+            department: "Human Resources",
+            imageUrl:
+              "https://readdy.ai/api/search-image?query=professional%20headshot%20of%20a%20young%20asian%20female%20with%20black%20hair%20wearing%20a%20professional%20outfit%2C%20looking%20directly%20at%20camera%20with%20a%20warm%20smile%2C%20clean%20background%2C%20high%20quality%20studio%20lighting&width=400&height=400&seq=4&orientation=squarish",
+          },
+          {
+            id: "EMP10765",
+            name: "Robert Martinez",
+            department: "Product Development",
+            imageUrl:
+              "https://readdy.ai/api/search-image?query=professional%20headshot%20of%20a%20hispanic%20male%20with%20dark%20hair%20wearing%20a%20business%20casual%20outfit%2C%20looking%20directly%20at%20camera%20with%20a%20friendly%20expression%2C%20clean%20background%2C%20high%20quality%20studio%20lighting&width=400&height=400&seq=5&orientation=squarish",
+          },
+        ];
+        // Enable camera
+        enableCameraBtn.addEventListener("click", startCamera);
+        function startCamera() {
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            const constraints = {
+              video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                facingMode: "user",
+              },
+            };
+            navigator.mediaDevices
+              .getUserMedia(constraints)
+              .then(function (mediaStream) {
+                stream = mediaStream;
+                video.srcObject = stream;
+                video.style.transform = "scaleX(-1)"; // Mirror the video
+                noCameraDiv.classList.add("hidden");
+                statusIndicator.classList.remove("bg-gray-400");
+                statusIndicator.classList.add("bg-yellow-500");
+                statusText.textContent = "Camera active, recognition inactive";
+              })
+              .catch(function (err) {
+                console.log("Camera access error:", err);
+                showNotification(
+                  "Error accessing camera. Please check permissions.",
+                  "error",
+                );
+              });
+          } else {
+            showNotification("Your browser does not support camera access.", "error");
+          }
+        }
+        // Start recognition
+        startRecognitionBtn.addEventListener("click", function () {
+          if (!stream) {
+            startCamera();
+            setTimeout(toggleRecognition, 1000);
+          } else {
+            toggleRecognition();
+          }
+        });
+        function toggleRecognition() {
+          if (recognitionActive) {
+            stopRecognition();
+          } else {
+            startRecognition();
+          }
+        }
+        function startRecognition() {
+          recognitionActive = true;
+          startRecognitionBtn.textContent = "Stop Recognition";
+          startRecognitionBtn.classList.remove("bg-primary");
+          startRecognitionBtn.classList.add("bg-red-500");
+          statusIndicator.classList.remove("bg-yellow-500");
+          statusIndicator.classList.add("bg-green-500");
+          statusText.textContent = "Recognition active";
+          // Simulate face detection and recognition
+          recognitionInterval = setInterval(simulateFaceDetection, 1000);
+        }
+        function stopRecognition() {
+          recognitionActive = false;
+          clearInterval(recognitionInterval);
+          startRecognitionBtn.textContent = "Start Recognition";
+          startRecognitionBtn.classList.remove("bg-red-500");
+          startRecognitionBtn.classList.add("bg-primary");
+          statusIndicator.classList.remove("bg-green-500");
+          statusIndicator.classList.add("bg-yellow-500");
+          statusText.textContent = "Camera active, recognition inactive";
+          faceDetectionBox.classList.add("hidden");
+          recognitionStatus.textContent = "Waiting for recognition...";
+          markAttendanceBtn.disabled = true;
+          markAttendanceBtn.classList.add("bg-gray-200");
+          markAttendanceBtn.classList.remove("bg-primary", "text-white");
+          markAttendanceBtn.classList.add("text-gray-700");
+        }
+        // Mark attendance
+        markAttendanceBtn.addEventListener("click", function () {
+          if (faceDetected) {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+            // In a real app, this would send data to a server
+            showNotification(
+              `Attendance marked for ${nameField.value} at ${timeStr}`,
+              "success",
+            );
+            // Update status
+            statusField.textContent = `Checked in at ${timeStr}`;
+            // Add to attendance records
+            addAttendanceRecord({
+              id: employeeIdField.value,
+              name: nameField.value,
+              timeIn: timeStr,
+              timeOut: "--",
+              status: "In Office",
+            });
+            // Reset face detection
+            faceDetected = false;
+            faceDetectionBox.classList.add("hidden");
+            markAttendanceBtn.disabled = true;
+            markAttendanceBtn.classList.add("bg-gray-200");
+            markAttendanceBtn.classList.remove("bg-primary", "text-white");
+            markAttendanceBtn.classList.add("text-gray-700");
+            // If auto-recognition is off, stop recognition
+            if (!autoRecognitionToggle.checked) {
+              stopRecognition();
+            }
+          }
+        });
+        // Reset
+        resetBtn.addEventListener("click", function () {
+          stopRecognition();
+          clearUserInfo();
+          showNotification("System reset complete", "info");
+        });
+        // Simulate face detection and recognition
+        function simulateFaceDetection() {
+          if (!recognitionActive) return;
+          // Simulate random detection
+          const detected = Math.random() > 0.3;
+          if (detected) {
+            // Simulate face box position
+            const videoWidth = video.clientWidth;
+            const videoHeight = video.clientHeight;
+            const boxWidth = Math.floor(videoWidth * 0.2);
+            const boxHeight = Math.floor(videoHeight * 0.3);
+            const left = Math.floor(
+              (videoWidth - boxWidth) * 0.4 + Math.random() * 0.2 * videoWidth,
+            );
+            const top = Math.floor(
+              (videoHeight - boxHeight) * 0.4 + Math.random() * 0.2 * videoHeight,
+            );
+            faceDetectionBox.style.width = `${boxWidth}px`;
+            faceDetectionBox.style.height = `${boxHeight}px`;
+            faceDetectionBox.style.left = `${left}px`;
+            faceDetectionBox.style.top = `${top}px`;
+            if (faceHighlightToggle.checked) {
+              faceDetectionBox.classList.remove("hidden");
+            } else {
+              faceDetectionBox.classList.add("hidden");
+            }
+            // Simulate recognition confidence
+            const confidence = Math.random() * 100;
+            if (confidence > detectionThreshold.value) {
+              faceDetected = true;
+              faceDetectionBox.classList.add("face-detected");
+              recognitionStatus.textContent = `Face recognized (${confidence.toFixed(1)}% match)`;
+              // Enable mark attendance button
+              markAttendanceBtn.disabled = false;
+              markAttendanceBtn.classList.remove("bg-gray-200", "text-gray-700");
+              markAttendanceBtn.classList.add("bg-primary", "text-white");
+              // Fill user info with random employee
+              const randomEmployee =
+                employees[Math.floor(Math.random() * employees.length)];
+              employeeIdField.value = randomEmployee.id;
+              nameField.value = randomEmployee.name;
+              departmentField.value = randomEmployee.department;
+              statusField.textContent = "Ready to check in";
+              // Update person photo
+              const personPhoto = document.getElementById("person-photo");
+              const defaultAvatar = document.getElementById("default-avatar");
+              if (randomEmployee.imageUrl) {
+                personPhoto.src = randomEmployee.imageUrl;
+                personPhoto.classList.remove("hidden");
+                defaultAvatar.classList.add("hidden");
+              } else {
+                personPhoto.classList.add("hidden");
+                defaultAvatar.classList.remove("hidden");
+              }
+              // If auto-recognition is on, automatically mark attendance
+              if (autoRecognitionToggle.checked) {
+                setTimeout(() => {
+                  markAttendanceBtn.click();
+                }, 1000);
+              }
+            } else {
+              faceDetected = false;
+              faceDetectionBox.classList.remove("face-detected");
+              recognitionStatus.textContent = `Face detected, not recognized (${confidence.toFixed(1)}% match)`;
+            }
+          } else {
+            faceDetected = false;
+            faceDetectionBox.classList.add("hidden");
+            recognitionStatus.textContent = "Searching for faces...";
+          }
+        }
+        // Add attendance record to table
+        function addAttendanceRecord(record) {
+          const tbody = document.getElementById("attendance-records");
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      ${record.id}
+      </td>
+      <td class="px-6 py-4 whitespace-nowrap">
+      <div class="flex items-center">
+      <div class="flex-shrink-0 h-8 w-8 bg-gray-200 rounded-full flex items-center justify-center">
+      <i class="ri-user-line text-gray-500"></i>
+      </div>
+      <div class="ml-3">
+      <div class="text-sm font-medium text-gray-900">
+      ${record.name}
+      </div>
+      </div>
+      </div>
+      </td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      ${record.timeIn}
+      </td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      ${record.timeOut}
+      </td>
+      <td class="px-6 py-4 whitespace-nowrap">
+      <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+      ${record.status}
+      </span>
+      </td>
+      `;
+          tbody.prepend(tr);
+        }
+        // Clear user info
+        function clearUserInfo() {
+          employeeIdField.value = "";
+          nameField.value = "";
+          departmentField.value = "";
+          statusField.textContent = "Not checked in";
+          recognitionStatus.textContent = "Waiting for recognition...";
+        }
+        // Show notification
+        function showNotification(message, type) {
+          notificationDiv.textContent = message;
+          notificationDiv.classList.remove(
+            "hidden",
+            "bg-green-100",
+            "text-green-800",
+            "bg-red-100",
+            "text-red-800",
+            "bg-blue-100",
+            "text-blue-800",
+          );
+          switch (type) {
+            case "success":
+              notificationDiv.classList.add("bg-green-100", "text-green-800");
+              break;
+            case "error":
+              notificationDiv.classList.add("bg-red-100", "text-red-800");
+              break;
+            case "info":
+            default:
+              notificationDiv.classList.add("bg-blue-100", "text-blue-800");
+              break;
+          }
+          setTimeout(() => {
+            notificationDiv.classList.add("hidden");
+          }, 5000);
+        }
+        // Settings event listeners
+        detectionThreshold.addEventListener("input", function () {
+          thresholdValue.textContent = `${this.value}%`;
+        });
+        // Camera source change
+        cameraSource.addEventListener("change", function () {
+          if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+            stream = null;
+          }
+          showNotification(
+            `Switching to ${this.options[this.selectedIndex].text}`,
+            "info",
+          );
+          setTimeout(startCamera, 500);
+        });
+      });
+    </script>
+  </body>
+</html>
 
